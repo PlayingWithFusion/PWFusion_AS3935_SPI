@@ -49,7 +49,9 @@
 
 #include "Arduino.h"
 #include "avr/pgmspace.h"
-#include "util/delay.h"
+#if !defined(ARDUINO_ARCH_SAM) && !defined(ARDUINO_ARCH_SAMD) && !defined(ESP8266) && !defined(ARDUINO_ARCH_STM32F2)
+ #include <util/delay.h>
+#endif
 #include "stdlib.h"
 #include "SPI.h"
 
