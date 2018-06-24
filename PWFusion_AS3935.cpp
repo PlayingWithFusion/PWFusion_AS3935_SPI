@@ -46,7 +46,10 @@
 * Lightning Sensor manufactured by AMS. Originally designed for application
 * on the Arduino Uno platform.
 **************************************************************************/
+#include <SPI.h>
 #include "PWFusion_AS3935.h"
+
+SPISettings AS3935_SPI(1000000, MSBFIRST, SPI_MODE1); 
 
 PWF_AS3935::PWF_AS3935(int8_t CSx, int8_t IRQx, int8_t SIx)
 {
@@ -54,18 +57,12 @@ PWF_AS3935::PWF_AS3935(int8_t CSx, int8_t IRQx, int8_t SIx)
 	_si  = SIx;
 	_irq = IRQx;
 	
-	// initalize the chip select pins
-	pinMode(_cs, OUTPUT);
-	pinMode(_si, OUTPUT);
-	pinMode(_irq, INPUT);
-	
-	digitalWrite(_cs, HIGH);	// set pin high to initialize/clear SPI bus
-	digitalWrite(_si, LOW);		// set pin low for SPI mode
 
 }
 
 uint8_t PWF_AS3935::_sing_reg_read(uint8_t RegAdd)
 {
+  SPI.beginTransaction(AS3935_SPI);
 	digitalWrite(_cs, LOW);						// set pin low to start talking to IC
 	// next pack command byte, send AS3935.... structure is shown below
 	//  MODE   Register Address/Direct Cmd
@@ -74,12 +71,13 @@ uint8_t PWF_AS3935::_sing_reg_read(uint8_t RegAdd)
 	SPI.transfer((RegAdd & 0x3F) | 0x40);		// simple write, nothing to read back
 	uint8_t RegData = SPI.transfer(0x00); 		// read register data from IC
 	digitalWrite(_cs, HIGH);					// set pin high to end SPI session
-	
+  SPI.endTransaction();
 	return RegData;
 }
 
 void PWF_AS3935::_sing_reg_write(uint8_t RegAdd, uint8_t DataMask, uint8_t RegData)
 {
+  SPI.beginTransaction(AS3935_SPI);
 	// start by reading original register data (only modifying what we need to)
 	uint8_t OrigRegData = _sing_reg_read(RegAdd);
 
@@ -97,31 +95,55 @@ void PWF_AS3935::_sing_reg_write(uint8_t RegAdd, uint8_t DataMask, uint8_t RegDa
 	SPI.transfer((RegAdd & 0x3F));					// simple write, nothing to read back
 	SPI.transfer(NewRegData); 						// write register data to IC
 	digitalWrite(_cs, HIGH);						// set pin high to end SPI session
+  SPI.endTransaction();
 }
 
 void PWF_AS3935::AS3935_DefInit()
 {
+  // Begin SPI Library 
+  SPI.begin(); 
+  
+	// initalize the chip select pins
+	pinMode(_cs, OUTPUT);
+
+  if(_si != -1)
+  {
+	  pinMode(_si, OUTPUT);
+    digitalWrite(_si, LOW);		// set pin low for SPI mode
+  }
+  
+  if(_irq != -1)
+  {
+	  pinMode(_irq, INPUT_PULLUP);
+  }
+
+	digitalWrite(_cs, HIGH);	// set pin high to initialize/clear SPI bus
+
 	_AS3935_Reset();			// reset registers to default
 }
 
 void PWF_AS3935::_AS3935_Reset()
 {
+  SPI.beginTransaction(AS3935_SPI);
 	// run PRESET_DEFAULT Direct Command to set all registers in default state
 	digitalWrite(_cs, LOW);		// begin transfer
 	SPI.transfer(0x3C);			// send first byte (write, PRESET_DEFAULT register)
 	SPI.transfer(0x96);			// send second byte (direct command)
 	digitalWrite(_cs, HIGH);	// end transfer
 	delay(2);					// wait 2ms to complete
+  SPI.endTransaction();
 }
 
 void PWF_AS3935::_CalRCO()
 {
+  SPI.beginTransaction(AS3935_SPI);
 	// run ALIB_RCO Direct Command to cal internal RCO
 	digitalWrite(_cs, LOW);		// begin transfer
 	SPI.transfer(0x3D);			// send first byte (write, CALIB_RCO register)
 	SPI.transfer(0x96);			// send second byte (direct command)
 	digitalWrite(_cs, HIGH);	// end transfer
 	delay(3);					// wait 3ms to complete
+  SPI.endTransaction();
 }
 
 void PWF_AS3935::AS3935_PowerUp(void)

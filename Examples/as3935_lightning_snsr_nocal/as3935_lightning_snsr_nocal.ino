@@ -64,23 +64,22 @@
 *    5V:     5V          ''      -->  Arduino I/O is at 5V, so power board from 5V
 **************************************************************************/
 // the sensor communicates via SPI or I2C. This example uses the SPI interface
-#include "SPI.h"
 // include Playing With Fusion AXS3935 libraries
-#include "PWFusion_AS3935.h"
+#include <PWFusion_AS3935.h>
 
 // setup CS pins used for the connection with the sensor
 // other connections are controlled by the SPI library)
-int8_t CS_PIN  = 10;
-int8_t SI_PIN  = 9;
-int8_t IRQ_PIN = 2;                       // digital pins 2 and 3 are available for interrupt capability
-volatile int8_t AS3935_ISR_Trig = 0;
+int8_t CS_PIN  = 19;
+int8_t SI_PIN  = -1;
+int8_t IRQ_PIN = 18;                       // digital pins 2 and 3 are available for interrupt capability
+volatile uint8_t AS3935_ISR_Trig = 0;
 
 // #defines
-#define AS3935_INDOORS       0
-#define AS3935_OUTDOORS      1
+#define AS3935_INDOORS       1
+#define AS3935_OUTDOORS      0
 #define AS3935_DIST_DIS      0
 #define AS3935_DIST_EN       1
-#define AS3935_CAPACITANCE   104      // <-- SET THIS VALUE TO THE NUMBER LISTED ON YOUR BOARD 
+#define AS3935_CAPACITANCE   80      // <-- SET THIS VALUE TO THE NUMBER LISTED ON YOUR BOARD 
 // prototypes
 void AS3935_ISR();
 
@@ -90,27 +89,25 @@ void setup()
 {
   
   Serial.begin(115200);
+  delay(5000);
   Serial.println("Playing With Fusion: AS3935 Lightning Sensor, SEN-39001");
   Serial.println("beginning boot procedure....");
-  
-  // setup for the the SPI library:
-  SPI.begin();                            // begin SPI
-  SPI.setClockDivider(SPI_CLOCK_DIV16);   // SPI speed to SPI_CLOCK_DIV16/1MHz (max 2MHz, NEVER 500kHz!)
-  SPI.setDataMode(SPI_MODE1);             // MAX31855 is a Mode 1 device
-                                          //    --> clock starts low, read on rising edge
-  SPI.setBitOrder(MSBFIRST);              // data sent to chip MSb first 
-  
+ 
   lightning0.AS3935_DefInit();                        // set registers to default  
+
+  // enable interrupt (hook IRQ pin to Arduino Uno/Mega interrupt input: 0 -> pin 2, 1 -> pin 3 )
+  attachInterrupt(digitalPinToInterrupt(IRQ_PIN), AS3935_ISR, RISING);
+
   // now update sensor cal for your application and power up chip
   lightning0.AS3935_ManualCal(AS3935_CAPACITANCE, AS3935_OUTDOORS, AS3935_DIST_EN);
-                  // AS3935_ManualCal Parameters:
-                  //   --> capacitance, in pF (marked on package)
-                  //   --> indoors/outdoors (AS3935_INDOORS:0 / AS3935_OUTDOORS:1)
-                  //   --> disturbers (AS3935_DIST_EN:1 / AS3935_DIST_DIS:2)
-                  // function also powers up the chip
-                  
+                // AS3935_ManualCal Parameters:
+                //   --> capacitance, in pF (marked on package)
+                //   --> indoors/outdoors (AS3935_INDOORS:0 / AS3935_OUTDOORS:1)
+                //   --> disturbers (AS3935_DIST_EN:1 / AS3935_DIST_DIS:2)
+                // function also powers up the chip
+                
   // enable interrupt (hook IRQ pin to Arduino Uno/Mega interrupt input: 0 -> pin 2, 1 -> pin 3 )
-  attachInterrupt(0, AS3935_ISR, RISING);
+  attachInterrupt(digitalPinToInterrupt(IRQ_PIN), AS3935_ISR, RISING);
 
 }
 
@@ -145,7 +142,7 @@ void loop()
   {
     Serial.println("Noise level too high");
   }
-//    lightning0.AS3935_PrintAllRegs(); // for debug...
+  lightning0.AS3935_PrintAllRegs(); // for debug...
 }
 
 // this is irq handler for AS3935 interrupts, has to return void and take no arguments
